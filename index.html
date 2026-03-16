@@ -11,7 +11,7 @@
         body { font-family: 'Noto Sans KR', sans-serif; }
         .loading-spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #16a34a; /* 네이버 그린 느낌의 색상 */
+            border-top: 4px solid #16a34a; 
             border-radius: 50%;
             width: 24px;
             height: 24px;
@@ -66,7 +66,7 @@
                             <th class="p-4 font-medium w-24">비고</th>
                             <th class="p-4 font-medium w-20 min-w-[5rem]">수량</th>
                             <th class="p-4 font-medium w-28">단가</th>
-                            <th class="p-4 font-medium w-28 text-orange-600">배송비</th>
+                            <th class="p-4 font-medium w-32 text-orange-600 bg-orange-50/50">배송비<br><span class="text-[10px] text-gray-400 font-normal">(스토어 묶음)</span></th>
                             <th class="p-4 font-medium w-28 text-right">합계</th>
                             <th class="p-4 font-medium w-32 text-center text-gray-500">추가일시</th>
                             <th class="p-4 font-medium w-16 text-center">삭제</th>
@@ -111,7 +111,6 @@
             } catch(e) { console.warn("Config parsing error"); }
         }
 
-        // 기존 알파문구와 데이터가 섞이지 않도록 컬렉션명과 appId를 변경합니다.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'naver-tool-v1';
         const COLLECTION_NAME = 'naver_cart_items';
         
@@ -186,120 +185,164 @@
                         </td>
                     </tr>
                 `;
-                updateGrandTotal([]);
+                document.getElementById('grandTotal').innerText = '0원';
                 document.getElementById('countBadge').innerText = 0;
                 return;
             }
 
+            // 스토어별로 상품 그룹화
+            const groupedItems = {};
             items.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-gray-50 group border-b border-gray-100 transition";
-                
-                const price = parseInt(item.price || 0);
-                const qty = parseInt(item.qty || 0);
-                const deliveryFee = parseInt(item.deliveryFee || 0);
-                
-                // 합계 계산 (단가 * 수량 + 배송비)
-                const lineTotal = (price * qty) + deliveryFee;
-
-                // --- 옵션 렌더링 로직 ---
-                let optionHtml = '';
-                if (item.optionList && item.optionList.length > 0) {
-                    optionHtml = `<select class="w-full bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded p-1 outline-none focus:border-blue-500" onchange="window.updateItem('${item.id}', 'option', this.value)">`;
-                    
-                    let hasSelected = false;
-                    item.optionList.forEach(opt => {
-                        const isSelected = item.option === opt ? 'selected' : '';
-                        if(isSelected) hasSelected = true;
-                        optionHtml += `<option value="${opt}" ${isSelected}>${opt}</option>`;
-                    });
-                    
-                    if(!hasSelected && !item.option) {
-                         optionHtml = `<option value="" selected disabled>옵션을 선택하세요</option>` + optionHtml;
-                    } else if (!hasSelected && item.option) {
-                        optionHtml += `<option value="${item.option}" selected>${item.option} (목록없음)</option>`;
-                    }
-                    optionHtml += `</select>`;
-                } else {
-                    optionHtml = `<span class="text-gray-400 text-sm">-</span>`;
-                }
-
-                tr.innerHTML = `
-                    <td class="p-4">
-                        <input type="text" value="${item.applicant}" readonly class="w-full bg-transparent border-none outline-none text-green-800 font-bold bg-green-50 text-center rounded px-1 cursor-default">
-                    </td>
-                    <td class="p-4"><input type="text" value="${item.code}" readonly class="w-full bg-transparent border-none outline-none text-gray-700 cursor-default text-xs"></td>
-                    <td class="p-4"><input type="text" value="${item.name}" readonly class="w-full bg-transparent border-none outline-none font-medium text-gray-800 cursor-default truncate" title="${item.name}"></td>
-                    
-                    <td class="p-4">${optionHtml}</td>
-
-                    <td class="p-4">
-                        <input type="text" value="${item.remarks || ''}" placeholder="메모" class="w-full bg-transparent border-b border-transparent focus:border-green-500 outline-none text-gray-600 text-sm" onchange="window.updateItem('${item.id}', 'remarks', this.value)">
-                    </td>
-                    
-                    <td class="p-4"><input type="number" min="1" value="${item.qty}" class="qty-input w-full px-2 py-1 border border-gray-300 rounded focus:border-green-500 outline-none text-center" onchange="window.updateItem('${item.id}', 'qty', this.value, ${price}, ${item.freeShippingThreshold || 0}, '${item.originalDeliveryFee || item.deliveryFee || 0}')"></td>
-                    <td class="p-4"><input type="text" value="${price.toLocaleString()}" readonly class="price-input w-full bg-transparent border-none outline-none text-right pr-2 cursor-default"></td>
-                    
-                    <!-- 배송비 필드 추가 -->
-                    <td class="p-4">
-                        <input type="number" min="0" step="100" value="${deliveryFee}" class="fee-input w-full px-2 py-1 border border-gray-300 rounded focus:border-orange-500 outline-none text-right text-orange-600 font-medium" onchange="window.updateItem('${item.id}', 'deliveryFee', this.value)">
-                    </td>
-
-                    <td class="p-4 text-right font-bold text-gray-800 line-total">${lineTotal.toLocaleString()}</td>
-                    
-                    <td class="p-4 text-center text-xs text-gray-400 whitespace-nowrap">${formatDate(item.createdAt)}</td>
-                    <td class="hidden"><input type="hidden" class="link-input" value="${item.url || ''}"></td>
-
-                    <td class="p-4 text-center">
-                        <button onclick="window.deleteItem('${item.id}')" class="text-gray-400 hover:text-red-500 transition p-1" title="삭제">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
-                    </td>
-                `;
-                tableBody.appendChild(tr);
+                const store = item.storeName || '기본 스토어';
+                if (!groupedItems[store]) groupedItems[store] = [];
+                groupedItems[store].push(item);
             });
 
-            updateGrandTotal(items);
+            let grandTotal = 0;
+
+            for (const [storeName, storeItems] of Object.entries(groupedItems)) {
+                
+                // 스토어 그룹별 총 금액 및 배송비/임계값 산출
+                let storeItemTotal = 0;
+                let threshold = 0;
+                let origFee = 0;
+
+                storeItems.forEach(item => {
+                    storeItemTotal += (parseInt(item.price || 0) * parseInt(item.qty || 0));
+                    if (parseInt(item.freeShippingThreshold || 0) > threshold) {
+                        threshold = parseInt(item.freeShippingThreshold || 0);
+                    }
+                    if (parseInt(item.originalDeliveryFee || item.deliveryFee || 0) > origFee) {
+                        origFee = parseInt(item.originalDeliveryFee || item.deliveryFee || 0);
+                    }
+                });
+
+                // 무료 배송 조건 체크에 따른 동적 배송비 산출
+                let appliedFee = (threshold > 0 && storeItemTotal >= threshold) ? 0 : origFee;
+                grandTotal += storeItemTotal + appliedFee;
+
+                storeItems.forEach((item, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-gray-50 group border-b border-gray-100 transition";
+                    
+                    const price = parseInt(item.price || 0);
+                    const qty = parseInt(item.qty || 0);
+                    const lineTotal = price * qty;
+
+                    let optionHtml = '';
+                    if (item.optionList && item.optionList.length > 0) {
+                        optionHtml = `<select class="option-select w-full bg-blue-50 border border-blue-200 text-blue-800 text-sm rounded p-1 outline-none focus:border-blue-500" onchange="window.updateItem('${item.id}', 'option', this.value)">`;
+                        let hasSelected = false;
+                        item.optionList.forEach(opt => {
+                            const isSelected = item.option === opt ? 'selected' : '';
+                            if(isSelected) hasSelected = true;
+                            optionHtml += `<option value="${opt}" ${isSelected}>${opt}</option>`;
+                        });
+                        if(!hasSelected && !item.option) {
+                             optionHtml = `<option value="" selected disabled>옵션을 선택하세요</option>` + optionHtml;
+                        } else if (!hasSelected && item.option) {
+                            optionHtml += `<option value="${item.option}" selected>${item.option} (목록없음)</option>`;
+                        }
+                        optionHtml += `</select>`;
+                    } else {
+                        optionHtml = `<span class="option-text text-gray-400 text-sm">-</span>`;
+                    }
+
+                    // 기본 셀 생성 (각 항목별 클래스 부여하여 파싱 오류 방지)
+                    let tds = `
+                        <td class="p-4">
+                            <input type="text" value="${item.applicant}" readonly class="applicant-input w-full bg-transparent border-none outline-none text-green-800 font-bold bg-green-50 text-center rounded px-1 cursor-default">
+                        </td>
+                        <td class="p-4"><input type="text" value="${item.code}" readonly class="code-input w-full bg-transparent border-none outline-none text-gray-700 cursor-default text-xs"></td>
+                        <td class="p-4">
+                            <input type="text" value="${item.name}" readonly class="name-input w-full bg-transparent border-none outline-none font-medium text-gray-800 cursor-default truncate" title="${item.name}">
+                            <input type="hidden" class="store-name-hidden" value="${storeName}">
+                        </td>
+                        
+                        <td class="p-4">${optionHtml}</td>
+
+                        <td class="p-4">
+                            <input type="text" value="${item.remarks || ''}" placeholder="메모" class="remarks-input w-full bg-transparent border-b border-transparent focus:border-green-500 outline-none text-gray-600 text-sm" onchange="window.updateItem('${item.id}', 'remarks', this.value)">
+                        </td>
+                        
+                        <td class="p-4"><input type="number" min="1" value="${item.qty}" class="qty-input w-full px-2 py-1 border border-gray-300 rounded focus:border-green-500 outline-none text-center" onchange="window.updateItem('${item.id}', 'qty', this.value)"></td>
+                        <td class="p-4"><input type="text" value="${price.toLocaleString()}" readonly class="price-input w-full bg-transparent border-none outline-none text-right pr-2 cursor-default"></td>
+                    `;
+
+                    // 스토어별 그룹의 첫 번째 항목에만 '배송비' 셀을 병합(rowspan)하여 출력
+                    if (index === 0) {
+                        tds += `
+                            <td class="p-4 border-l border-r border-gray-200 bg-orange-50/30 text-center align-middle" rowspan="${storeItems.length}">
+                                <div class="flex flex-col items-center justify-center">
+                                    <span class="text-xs text-gray-500 font-bold mb-1 truncate w-24" title="${storeName}">${storeName}</span>
+                                    <input type="number" min="0" step="100" value="${appliedFee}" 
+                                        class="fee-input w-full max-w-[80px] px-2 py-1 border border-gray-300 rounded focus:border-orange-500 outline-none text-right text-orange-600 font-medium bg-white" 
+                                        onchange="window.updateStoreFee('${storeName}', this.value)">
+                                    ${threshold > 0 ? `<span class="text-[10px] text-orange-500 mt-1 whitespace-nowrap">${threshold.toLocaleString()}원↑ 무료</span>` : ''}
+                                </div>
+                            </td>
+                        `;
+                    }
+
+                    tds += `
+                        <td class="p-4 text-right font-bold text-gray-800 line-total">${lineTotal.toLocaleString()}</td>
+                        <td class="p-4 text-center text-xs text-gray-400 whitespace-nowrap date-text">${formatDate(item.createdAt)}</td>
+                        <td class="hidden"><input type="hidden" class="link-input" value="${item.url || ''}"></td>
+                        <td class="p-4 text-center">
+                            <button onclick="window.deleteItem('${item.id}')" class="text-gray-400 hover:text-red-500 transition p-1" title="삭제">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        </td>
+                    `;
+
+                    tr.innerHTML = tds;
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('grandTotal').innerText = grandTotal.toLocaleString() + '원';
             document.getElementById('countBadge').innerText = items.length;
         }
 
-        function updateGrandTotal(items) {
-            let total = 0;
-            items.forEach(item => {
-                const price = parseInt(item.price || 0);
-                const qty = parseInt(item.qty || 0);
-                const deliveryFee = parseInt(item.deliveryFee || 0);
-                total += (price * qty) + deliveryFee;
-            });
-            document.getElementById('grandTotal').innerText = total.toLocaleString() + '원';
-        }
-
-        window.updateItem = async function(docId, field, value, price = 0, threshold = 0, origFee = "0") {
+        window.updateItem = async function(docId, field, value) {
             if (!auth || !auth.currentUser) await signInAnonymously(auth);
             
             const docRef = doc(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME, docId);
             let finalValue = value;
-            if (field === 'price' || field === 'deliveryFee' || field === 'qty') {
+            if (field === 'price' || field === 'qty') {
                 finalValue = String(value).replace(/,/g, '');
                 if (isNaN(finalValue) || finalValue === '') finalValue = '0';
             }
             
-            const updates = { [field]: finalValue };
-
-            // 수량 변경 시 배송비 무료 조건 체크 및 동적 변경 로직
-            if (field === 'qty' && threshold > 0) {
-                const qty = parseInt(finalValue || 0);
-                if (price * qty >= threshold) {
-                    updates.deliveryFee = "0"; // 조건 충족 시 배송비 0원 처리
-                } else {
-                    updates.deliveryFee = origFee; // 조건 미달 시 원래 배송비 복구
-                }
-            }
-            
             try {
-                await updateDoc(docRef, updates);
+                await updateDoc(docRef, { [field]: finalValue });
             } catch (e) {
                 console.error("Update failed", e);
+            }
+        };
+
+        // 스토어별 배송비를 일괄 업데이트하는 함수
+        window.updateStoreFee = async function(storeName, newFee) {
+            if (!auth || !auth.currentUser) await signInAnonymously(auth);
+            
+            const feeVal = String(newFee).replace(/,/g, '');
+            if (isNaN(feeVal) || feeVal === '') return;
+
+            try {
+                const colRef = collection(db, 'artifacts', appId, 'public', 'data', COLLECTION_NAME);
+                const q = query(colRef, where("storeName", "==", storeName));
+                const snapshot = await getDocs(q);
+
+                const batch = writeBatch(db);
+                snapshot.forEach((docSnap) => {
+                    batch.update(docSnap.ref, { 
+                        originalDeliveryFee: feeVal,
+                        deliveryFee: feeVal
+                    });
+                });
+                await batch.commit();
+            } catch(e) {
+                console.error("Store fee update failed", e);
             }
         };
 
@@ -334,45 +377,47 @@
                     return; 
                 }
                 
-                const data = [["신청자", "상품코드", "상품명", "옵션", "비고", "수량", "단가", "배송비", "합계금액", "추가일시", "상품링크"]];
+                const data = [["스토어명", "신청자", "상품코드", "상품명", "옵션", "비고", "수량", "단가", "상품합계", "배송비(스토어별)", "추가일시", "상품링크"]];
                 let total = 0;
 
                 rows.forEach(row => {
-                    const inputs = row.querySelectorAll('input');
-                    const select = row.querySelector('select');
+                    const storeName = row.querySelector('.store-name-hidden')?.value || "";
+                    const applicant = row.querySelector('.applicant-input')?.value || "";
+                    const code = row.querySelector('.code-input')?.value || "";
+                    const name = row.querySelector('.name-input')?.value || "";
                     
-                    const applicant = inputs[0].value;
-                    const code = inputs[1].value;
-                    const name = inputs[2].value;
-                    
+                    const select = row.querySelector('.option-select');
                     let optionVal = "";
                     if (select) {
                         optionVal = select.value;
                     } else {
-                        const optionText = row.children[3].innerText.trim();
-                        optionVal = optionText === '-' ? '' : optionText;
+                        optionVal = row.querySelector('.option-text')?.innerText.replace('-', '').trim() || "";
                     }
 
-                    const remarks = inputs[3].value;
-                    const qty = parseInt(inputs[4].value) || 0;
-                    const price = parseInt(inputs[5].value.replace(/,/g, '')) || 0;
-                    const deliveryFee = parseInt(inputs[6].value.replace(/,/g, '')) || 0; // 배송비
+                    const remarks = row.querySelector('.remarks-input')?.value || "";
+                    const qty = parseInt(row.querySelector('.qty-input')?.value) || 0;
+                    const price = parseInt(row.querySelector('.price-input')?.value.replace(/,/g, '')) || 0;
+                    
+                    // 배송비는 스토어의 첫 번째 행에만 존재하므로, 있으면 출력하고 없으면 0 처리
+                    const feeInput = row.querySelector('.fee-input');
+                    const deliveryFee = feeInput ? (parseInt(feeInput.value.replace(/,/g, '')) || 0) : 0;
+                    
                     const link = row.querySelector('.link-input')?.value || "";
-                    const dateText = row.children[9].innerText.trim();
+                    const dateText = row.querySelector('.date-text')?.innerText.trim() || "";
                     
-                    const sum = (price * qty) + deliveryFee;
-                    total += sum;
+                    const sum = price * qty;
+                    total += sum + deliveryFee;
                     
-                    data.push([applicant, code, name, optionVal, remarks, qty, price, deliveryFee, sum, dateText, link]);
+                    data.push([storeName, applicant, code, name, optionVal, remarks, qty, price, sum, deliveryFee, dateText, link]);
                 });
                 
-                data.push(["", "", "총 합계", "", "", "", "", "", total, "", ""]);
+                data.push(["", "", "", "총 합계", "", "", "", "", "", total, "", ""]);
 
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(data);
                 
                 ws['!cols'] = [
-                    { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 20 },
+                    { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 20 },
                     { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 50 }
                 ];
                 
