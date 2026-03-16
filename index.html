@@ -62,7 +62,7 @@
                             <th class="p-4 font-medium w-32 bg-green-50 text-green-800">신청자</th>
                             <th class="p-4 font-medium w-28">상품코드</th>
                             <th class="p-4 font-medium min-w-[200px]">상품명</th>
-                            <th class="p-4 font-medium w-64 bg-blue-50 text-blue-800">옵션선택</th>
+                            <th class="p-4 font-medium w-64 bg-blue-50 text-blue-800">옵션</th>
                             <th class="p-4 font-medium w-24">비고</th>
                             <th class="p-4 font-medium w-20 min-w-[5rem]">수량</th>
                             <th class="p-4 font-medium w-28">단가</th>
@@ -227,7 +227,9 @@
                     
                     const price = parseInt(item.price || 0);
                     const qty = parseInt(item.qty || 0);
-                    const lineTotal = price * qty;
+                    
+                    // 합계 가격 계산 시, 스토어의 첫 번째 항목에만 배송비(appliedFee)를 더해서 보여주도록 처리
+                    const lineTotal = (price * qty) + (index === 0 ? appliedFee : 0);
 
                     let optionHtml = '';
                     if (item.option) {
@@ -366,7 +368,7 @@
                     return; 
                 }
                 
-                const data = [["스토어명", "신청자", "상품코드", "상품명", "옵션", "비고", "수량", "단가", "상품합계", "배송비(스토어별)", "추가일시", "상품링크"]];
+                const data = [["스토어명", "신청자", "상품코드", "상품명", "옵션", "비고", "수량", "단가", "합계", "배송비(스토어별)", "추가일시", "상품링크"]];
                 let total = 0;
 
                 rows.forEach(row => {
@@ -394,20 +396,20 @@
                     const link = row.querySelector('.link-input')?.value || "";
                     const dateText = row.querySelector('.date-text')?.innerText.trim() || "";
                     
-                    const sum = price * qty;
-                    total += sum + deliveryFee;
+                    const sum = (price * qty) + deliveryFee;
+                    total += sum;
                     
                     data.push([storeName, applicant, code, name, optionVal, remarks, qty, price, sum, deliveryFee, dateText, link]);
                 });
                 
-                data.push(["", "", "", "총 합계", "", "", "", "", "", total, "", ""]);
+                data.push(["", "", "", "총 합계", "", "", "", "", "", "", total, "", ""]);
 
                 const wb = XLSX.utils.book_new();
                 const ws = XLSX.utils.aoa_to_sheet(data);
                 
                 ws['!cols'] = [
                     { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 20 },
-                    { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 50 }
+                    { wch: 8 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 50 }
                 ];
                 
                 XLSX.utils.book_append_sheet(wb, ws, "네이버공구리스트");
